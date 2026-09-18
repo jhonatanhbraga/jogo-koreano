@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hangul no Keiko — Consoantes, Vogais e Frases</title>
+
+<style>
+  :root{
+    --paper: #f4f1ea;
+    --paper-card: #ffffff;
+    --ink: #1f2421;
+    --indigo: #1b3b6f;
+    --indigo-deep: #0f2244;
+    --hanko: #bc3908;
+    --moss: #386641;
+    --muted: #6c757d;
+    --line: rgba(31,36,33,0.12);
+    --radius: 8px;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app{
+    min-height: 100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding: 24px;
+    position: relative;
+  }
+  #flash{
+    position: fixed; inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 50;
+    transition: opacity 90ms ease-out;
+  }
+  #flash.correct{ background: var(--moss); opacity: 0.28; }
+  #flash.wrong{ background: var(--hanko); opacity: 0.30; }
+  .screen{ width: 100%; max-width: 460px; }
+  .menu{ text-align:center; }
+  .menu .kanji-title{
+    font-size: clamp(48px, 12vw, 72px);
+    font-weight: 700;
+    color: var(--indigo);
+    line-height: 1;
+    margin: 0 0 6px;
+  }
+  .menu .subtitle{
+    font-size: 15px;
+    color: var(--muted);
+    margin: 0 0 40px;
+  }
+  .menu-btn{
+    display:block;
+    width: 100%;
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--indigo);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin-bottom: 14px;
+    text-align: left;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 90ms ease, background 90ms ease;
+  }
+  .menu-btn:hover{ background: #fafafa; transform: translateX(2px); }
+  .menu-btn .jp{ font-size: 22px; margin-right: 12px; }
+  .menu-btn .stat{
+    display:block;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-weight: 400;
+  }
+  .reset-link{
+    display:inline-block;
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    background:none; border:none; font-family: inherit;
+  }
+  .reset-link:hover{ color: var(--hanko); }
+  .game{ display:none; text-align:center; }
+  .game.active{ display:block; }
+  .menu.hidden{ display:none; }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 30px;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .back-btn{
+    background:none; border:none; cursor:pointer;
+    font-family: inherit; font-size: 13.5px; color: var(--indigo);
+    padding: 6px 0;
+    display:flex; align-items:center; gap:6px;
+  }
+  .back-btn:hover{ color: var(--hanko); }
+  .stats{ display:flex; gap:14px; }
+  .stats b{ color: var(--ink); font-weight: 700; }
+  .char-wrap{
+    height: clamp(140px, 28vw, 190px);
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom: 25px;
+  }
+  #kana-char{
+    font-weight: 700;
+    font-size: clamp(80px, 20vw, 140px);
+    color: var(--ink);
+    line-height: 1.15;
+    user-select: none;
+    text-align: center;
+  }
+  #game[data-mode="phrases"] .char-wrap{
+    height: auto;
+    min-height: 110px;
+    padding: 10px 6px;
+  }
+  #game[data-mode="phrases"] #kana-char{
+    font-size: clamp(20px, 4.5vw, 28px);
+    font-weight: 600;
+    line-height: 1.45;
+  }
+  #kana-sub{
+    display: none;
+    font-size: 15px;
+    font-style: italic;
+    color: var(--muted);
+    margin-top: 8px;
+    text-align: center;
+  }
+  #game[data-mode="phrases"] #kana-sub{ display: block; }
+  .options{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 480px){
+    .options{ grid-template-columns: 1fr; }
+  }
+  #game[data-mode="phrases"] .options{ grid-template-columns: 1fr; }
+  .opt{
+    position: relative;
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 10px 14px;
+    font-family: inherit;
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 90ms ease, border-color 90ms ease, background 90ms ease;
+  }
+  #game[data-mode="phrases"] .opt{
+    text-align: left;
+    padding: 14px 14px 14px 34px;
+    font-size: 14.5px;
+    font-weight: 400;
+  }
+  #game[data-mode="phrases"] .opt .key{ top: 14px; left: 12px; }
+  .opt:hover:not(:disabled){ transform: translateY(-2px); border-color: var(--indigo); }
+  .opt .key{
+    position:absolute; top:6px; left:9px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .opt.correct-choice{
+    background: #d4edd2 !important;
+    border-color: var(--moss) !important;
+    color: #1c3822 !important;
+  }
+  .opt.wrong-choice{
+    background: #f8d7da !important;
+    border-color: var(--hanko) !important;
+    color: #58151c !important;
+  }
+  .next-container{
+    text-align: center;
+    min-height: 48px;
+    margin-bottom: 15px;
+  }
+  #next-btn{
+    display: none;
+    background: var(--indigo);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(27,59,111,0.25);
+    transition: background 90ms ease;
+    margin: 0 auto;
+  }
+  #next-btn:hover{ background: var(--indigo-deep); }
+  .hint{ text-align: center; font-size: 12.5px; color: var(--muted); margin: 0; }
+  .footer-note{ text-align:center; margin-top: 18px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="flash"></div>
+<div id="app">
+  <div class="screen">
+    <div class="menu" id="menu">
+      <p class="kanji-title">한글</p>
+      <p class="subtitle">Prática de hangul (consoantes e vogais) e frases</p>
+
+      <button class="menu-btn" data-set="jamo">
+        <span class="jp">한</span>Jamo (Consoantes e Vogales)
+        <span class="stat" id="stat-jamo">Carregando...</span>
+      </button>
+      <button class="menu-btn" data-set="phrases">
+        <span class="jp">문장</span>Frases em Coreano
+        <span class="stat" id="stat-phrases">Carregando...</span>
+      </button>
+
+      <button class="reset-link" id="reset-btn">reiniciar progresso salvo</button>
+    </div>
+
+    <div class="game" id="game" data-mode="kana">
+      <div class="topbar">
+        <button class="back-btn" id="back-btn">&larr; voltar</button>
+        <div class="stats">
+          <span>sequência <b id="streak">0</b></span>
+          <span>acertos <b id="accuracy">—</b></span>
+        </div>
+      </div>
+
+      <div class="char-wrap">
+        <div id="kana-char">g</div>
+        <div id="kana-sub"></div>
+      </div>
+
+      <div class="options" id="options">
+        <button class="opt" data-idx="0"><span class="key">1</span><span class="txt"></span></button>
+        <button class="opt" data-idx="1"><span class="key">2</span><span class="txt"></span></button>
+        <button class="opt" data-idx="2"><span class="key">3</span><span class="txt"></span></button>
+      </div>
+
+      <div class="next-container">
+        <button id="next-btn">Continuar &rarr;</button>
+      </div>
+
+      <p class="hint">tecle 1, 2 ou 3 para responder</p>
+      <p class="footer-note">estude e anote com calma; clique em continuar quando estiver pronto</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var JAMO = [
+    ["ㄱ","g"],["ㄴ","n"],["ㄷ","d"],["ㄹ","r/l"],["ㅁ","m"],
+    ["ㅂ","b"],["ㅅ","s"],["ㅇ","ng/mudo"],["ㅈ","j"],["ㅊ","ch"],
+    ["ㅋ","k"],["ㅌ","t"],["ㅍ","p"],["ㅎ","h"],
+    ["ㄲ","kk"],["ㄸ","tt"],["ㅃ","pp"],["ㅉ","jj"],["ㅆ","ss"],
+    ["ㅏ","a"],["ㅑ","ya"],["ㅓ","eo"],["ㅕ","yeo"],["ㅗ","o"],
+    ["ㅛ","yo"],["ㅜ","u"],["ㅠ","yu"],["ㅡ","eu"],["ㅣ","i"],
+    ["ㅐ","ae"],["ㅒ","yae"],["ㅔ","e"],["ㅖ","ye"],["ㅘ","wa"],
+    ["ㅙ","wae"],["ㅚ","woe"],["ㅝ","wo"],["ㅞ","we"],["ㅟ","wi"],["ㅢ","ui"]
+  ];
+
+  var PHRASES = [
+    ["안녕하세요.","Annyeonghaseyo.","Olá. / Bom dia. (formal)"],
+    ["안녕.","Annyeong.","Oi. / Tchau. (informal)"],
+    ["반갑습니다.","Bangapseumnida.","Prazer em conhecê-lo(a)."],
+    ["감사합니다.","Gamsahamnida.","Obrigado(a)."],
+    ["고맙습니다.","Gomapseumnida.","Obrigado(a). (alternativo)"],
+    ["천만에요.","Cheonmaneyo.","De nada."],
+    ["죄송합니다.","Joesonghamnida.","Desculpe. (formal)"],
+    ["실례합니다.","Sillyehamnida.","Com licença."],
+    ["괜찮습니다.","Gwaenchanseumnida.","Tudo bem. / Não há problema."],
+    ["네.","Ne.","Sim."],
+    ["아니요.","Aniyo.","Não."],
+    ["잘 지내세요?","Jal jinaeseyo?","Como você está?"],
+    ["잘 지냅니다.","Jal jinaemnida.","Estou bem."],
+    ["이름이 뭐예요?","Ireumi mwoyeyo?","Qual é o seu nome?"],
+    ["제 이름은 타로입니다.","Je ireumeun taroimnida.","Meu nome é Tarô."],
+    ["어디에서 오셨어요?","Eodieseo osyeosseoyo?","De onde você é?"],
+    ["브라질에서 왔어요.","Beurajireseo wasseoyo.","Eu vim do Brasil."],
+    ["한국어를 묻습니다.","Hanguk-eoreul mutseumnida.","Eu estudo coreano."],
+    ["잘 모르겠습니다.","Jal moreugeesseumnida.","Eu não sei / Não entendo bem."],
+    ["영어 할 줄 아세요?","Yong-eo hal jul aseyo?","Você fala inglês?"],
+    ["이거 얼마예요?","Igeo eolmayeyo?","Quanto custa isto?"],
+    ["화장실이 어디예요?","Hwajangsiri eodiyeyo?","Onde fica o banheiro?"],
+    ["도와주세요.","Dowajuseyo.","Me ajude, por favor."],
+    ["조심하세요.","Josimhaseyo.","Tenha cuidado."],
+    ["축하합니다.","Chukahamnida.","Parabéns!"],
+    ["화이팅!","Hwaiting!","Força! / Boa sorte!"],
+    ["저는 학교에 갑니다.","Jeoneun hakgyoe gamnida.","Eu vou para a escola."],
+    ["저는 물을 마십니다.","Jeoneun mureul masimnida.","Eu bebo água."],
+    ["저는 밥을 먹습니다.","Jeoneun babeul meokseumnida.","Eu como."],
+    ["저는 책을 읽습니다.","Jeoneun chaegeul ikseumnida.","Eu leio um livro."],
+    ["저는 음악을 듣습니다.","Jeoneun eumageul deutseumnida.","Eu escuto música."],
+    ["저는 텔레비전을 봅니다.","Jeoneun tellebijyeoneul bomnida.","Eu assisto TV."],
+    ["저는 한국어를 합니다.","Jeoneun hanguk-eoreul hamnida.","Eu falo coreano."],
+    ["저는 집에 돌아갑니다.","Jeoneun jibe doragamnida.","Eu volto para casa."],
+    ["저는 커피를 좋아합니다.","Jeoneun keopireul joahamnida.","Eu gosto de café."],
+    ["저는 강아지를 키웁니다.","Jeoneun gangajireul kiumnida.","Eu crio um cachorro."],
+    ["저는 영화를 보러 갑니다.","Jeoneun yeonghwareul boreo gamnida.","Eu vou ver um filme."],
+    ["약을 먹습니다.","Yageul meokseumnida.","Tomo remédio."]
+  ];
+
+  var SETS = { jamo: JAMO, phrases: PHRASES };
+
+  var STORAGE_KEY = "hangul_drill_stats_v1";
+  function loadStats(){
+    var s;
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) s = JSON.parse(raw);
+    }catch(e){}
+    s = s || {};
+    s.jamo = s.jamo || {};
+    s.phrases = s.phrases || {};
+    return s;
+  }
+  function saveStats(stats){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(stats)); }catch(e){}
+  }
+  var stats = loadStats();
+
+  var currentSetName = null;
+  var currentSet = null;
+  var currentItem = null;
+  var correctIdx = 0;
+  var lastKey = null;
+  var answered = false;
+  var session = { correct: 0, total: 0, streak: 0 };
+
+  var menuEl = document.getElementById("menu");
+  var gameEl = document.getElementById("game");
+  var kanaCharEl = document.getElementById("kana-char");
+  var kanaSubEl = document.getElementById("kana-sub");
+  var optionsEl = document.getElementById("options");
+  var optButtons = Array.prototype.slice.call(document.querySelectorAll(".opt"));
+  var flashEl = document.getElementById("flash");
+  var streakEl = document.getElementById("streak");
+  var accuracyEl = document.getElementById("accuracy");
+  var nextBtn = document.getElementById("next-btn");
+
+  function updateMenuCounts(){
+    document.getElementById("stat-jamo").textContent = JAMO.length + " caracteres (Jamo)";
+    document.getElementById("stat-phrases").textContent = PHRASES.length + " frases";
+  }
+  updateMenuCounts();
+
+  function weightFor(setName, key){
+    var s = stats[setName][key];
+    var wrong = s ? s.wrong : 0;
+    return 1 + wrong * 2.5;
+  }
+
+  function pickItem(setName, set){
+    var weights = set.map(function(item){ return weightFor(setName, item[0]); });
+    var attempt = 0;
+    var pick;
+    do{
+      var total = weights.reduce(function(a,b){ return a+b; }, 0);
+      var r = Math.random() * total;
+      var acc = 0;
+      pick = set[set.length - 1];
+      for(var i=0; i<set.length; i++){
+        acc += weights[i];
+        if(r <= acc){ pick = set[i]; break; }
+      }
+      attempt++;
+    } while(pick[0] === lastKey && set.length > 1 && attempt < 6);
+    return pick;
+  }
+
+  function shuffle(arr){
+    var a = arr.slice();
+    for(var i = a.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = a[i]; a[i] = a[j]; a[j] = temp;
+    }
+    return a;
+  }
+
+  function updateStatsDisplay(){
+    streakEl.textContent = session.streak;
+    if(session.total === 0){
+      accuracyEl.textContent = "—";
+    } else {
+      var pct = Math.round((session.correct / session.total) * 100);
+      accuracyEl.textContent = pct + "%";
+    }
+  }
+
+  function nextQuestion(){
+    answered = false;
+    nextBtn.style.display = "none";
+    flashEl.className = "";
+    optButtons.forEach(function(btn){
+      btn.className = "opt";
+      btn.disabled = false;
+    });
+
+    currentItem = pickItem(currentSetName, currentSet);
+    lastKey = currentItem[0];
+
+    if(currentSetName === "phrases"){
+      kanaCharEl.textContent = currentItem[1];
+      kanaSubEl.textContent = currentItem[2];
+      
+      var others = currentSet.filter(function(i){ return i[0] !== currentItem[0]; });
+      others = shuffle(others);
+      var choices = [currentItem, others[0], others[1]];
+      choices = shuffle(choices);
+
+      correctIdx = choices.indexOf(currentItem);
+      optButtons.forEach(function(btn, idx){
+        btn.querySelector(".txt").textContent = choices[idx][0];
+      });
+    } else {
+      kanaCharEl.textContent = currentItem[1];
+      kanaSubEl.textContent = "";
+
+      var others = currentSet.filter(function(i){ return i[0] !== currentItem[0]; });
+      others = shuffle(others);
+      var choices = [currentItem, others[0], others[1]];
+      choices = shuffle(choices);
+
+      correctIdx = choices.indexOf(currentItem);
+      optButtons.forEach(function(btn, idx){
+        btn.querySelector(".txt").textContent = choices[idx][0];
+      });
+    }
+  }
+
+  function recordResult(isCorrect){
+    session.total++;
+    var key = currentItem[0];
+    if(!stats[currentSetName][key]){
+      stats[currentSetName][key] = { correct: 0, wrong: 0 };
+    }
+    if(isCorrect){
+      session.correct++;
+      session.streak++;
+      stats[currentSetName][key].correct++;
+      flashEl.className = "correct";
+    } else {
+      session.streak = 0;
+      stats[currentSetName][key].wrong++;
+      flashEl.className = "wrong";
+    }
+    saveStats(stats);
+    updateStatsDisplay();
+  }
+
+  function handleChoice(idx){
+    if(answered) return;
+    answered = true;
+
+    optButtons.forEach(function(b){ b.disabled = true; });
+
+    var isCorrect = (idx === correctIdx);
+    recordResult(isCorrect);
+
+    optButtons.forEach(function(b, i){
+      if(i === correctIdx){
+        b.classList.add("correct-choice");
+      } else if(i === idx && !isCorrect){
+        b.classList.add("wrong-choice");
+      }
+    });
+
+    nextBtn.style.display = "block";
+    nextBtn.focus();
+  }
+
+  document.querySelectorAll(".menu-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      currentSetName = btn.getAttribute("data-set");
+      currentSet = SETS[currentSetName];
+      gameEl.setAttribute("data-mode", currentSetName === "phrases" ? "phrases" : "kana");
+      menuEl.classList.add("hidden");
+      gameEl.classList.add("active");
+      session = { correct: 0, total: 0, streak: 0 };
+      updateStatsDisplay();
+      nextQuestion();
+    });
+  });
+
+  document.getElementById("back-btn").addEventListener("click", function(){
+    gameEl.classList.remove("active");
+    menuEl.classList.remove("hidden");
+    updateMenuCounts();
+  });
+
+  document.getElementById("reset-btn").addEventListener("click", function(){
+    if(confirm("Tem certeza que deseja apagar todo o progresso salvo?")){
+      localStorage.removeItem(STORAGE_KEY);
+      stats = loadStats();
+      alert("Progresso reiniciado com sucesso.");
+    }
+  });
+
+  optButtons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var idx = parseInt(btn.getAttribute("data-idx"), 10);
+      handleChoice(idx);
+    });
+  });
+
+  nextBtn.addEventListener("click", function(){
+    nextQuestion();
+  });
+
+  document.addEventListener("keydown", function(e){
+    if(!gameEl.classList.contains("active")) return;
+
+    if(answered && (e.key === "Enter" || e.key === " ")){
+      e.preventDefault();
+      nextQuestion();
+      return;
+    }
+
+    if(!answered){
+      if(e.key === "1") handleChoice(0);
+      else if(e.key === "2") handleChoice(1);
+      else if(e.key === "3") handleChoice(2);
+    }
+  });
+})();
+</script>
+</body>
+</html>
